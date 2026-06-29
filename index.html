@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Viewer</title>
+<style>
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif;
+    background: #171318;
+    color: #f7edf7;
+  }
+
+  header {
+    background: #211a23;
+    border-bottom: 1px solid rgba(255,255,255,0.14);
+    padding: 18px 14px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .header-inner {
+    max-width: 920px;
+    margin: 0 auto;
+  }
+
+  h1 {
+    font-size: 22px;
+    margin: 0;
+    letter-spacing: .02em;
+  }
+
+  .small {
+    color: #c8b8c8;
+    font-size: 12px;
+    margin-top: 4px;
+  }
+
+  main {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 14px;
+  }
+
+  input {
+    width: 100%;
+    box-sizing: border-box;
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.16);
+    background: #2a222d;
+    color: #f7edf7;
+    padding: 12px;
+    font-size: 16px;
+    margin-bottom: 14px;
+  }
+
+  button {
+    border: 0;
+    border-radius: 999px;
+    background: #f1d6e3;
+    color: #201820;
+    padding: 10px 14px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  button.sub {
+    background: transparent;
+    color: #f1d6e3;
+    border: 1px solid rgba(255,255,255,0.20);
+  }
+
+  .post {
+    background: #211a23;
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 20px;
+    margin-bottom: 18px;
+    overflow: hidden;
+  }
+
+  .post-head {
+    padding: 14px;
+  }
+
+  .title {
+    font-size: 17px;
+    font-weight: 800;
+    margin-bottom: 6px;
+  }
+
+  .meta {
+    color: #c8b8c8;
+    font-size: 12px;
+    line-height: 1.6;
+  }
+
+  .scroller {
+    display: flex;
+    flex-direction: row;
+    direction: rtl;
+    gap: 10px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    padding: 0 14px 14px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .frame {
+    flex: 0 0 84%;
+    scroll-snap-align: center;
+    background: #0e0b10;
+    border-radius: 16px;
+    overflow: hidden;
+    min-height: 220px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    direction: ltr;
+  }
+
+  .frame img {
+    width: 100%;
+    max-height: 72vh;
+    object-fit: contain;
+    display: block;
+  }
+
+  .cover {
+    margin: 0 14px 14px;
+    min-height: 220px;
+    border-radius: 16px;
+    background: #2a222d;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 18px;
+  }
+
+  .cover strong {
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  .note {
+    padding: 0 14px 14px;
+    line-height: 1.7;
+    white-space: pre-wrap;
+  }
+
+  .empty, .error {
+    background: #211a23;
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 18px;
+    padding: 28px 16px;
+    text-align: center;
+    color: #c8b8c8;
+    line-height: 1.7;
+  }
+
+  .error {
+    color: #ffd6d6;
+    text-align: left;
+    white-space: pre-wrap;
+  }
+
+  .viewer {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.90);
+    z-index: 50;
+    padding: 52px 10px 76px;
+    box-sizing: border-box;
+  }
+
+  .viewer.show {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .viewer img {
+    max-width: 100%;
+    max-height: 78vh;
+    object-fit: contain;
+    border-radius: 12px;
+  }
+
+  .viewer .close {
+    position: fixed;
+    top: 12px;
+    right: 12px;
+  }
+
+  .viewer .viewer-actions {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 18px;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+  }
+
+  @media (max-width: 640px) {
+    .frame {
+      flex-basis: 88%;
+    }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="header-inner">
+    <h1>Viewer</h1>
+    <div class="small">作品置き場</div>
+  </div>
+</header>
+
+<main>
+  <input id="searchInput" type="search" placeholder="タイトル・本文で検索">
+  <section id="postsBox">
+    <div class="empty">読み込み中です。</div>
+  </section>
+</main>
+
+<div id="viewer" class="viewer">
+  <button id="closeViewerBtn" class="close sub" type="button">閉じる</button>
+  <img id="viewerImg" src="" alt="">
+  <div class="viewer-actions">
+    <button id="nextBtn" class="sub" type="button">次へ</button>
+    <button id="prevBtn" class="sub" type="button">前へ</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  var posts = [];
+  var currentImages = [];
+  var currentIndex = 0;
+
+  function el(id) {
+    return document.getElementById(id);
+  }
+
+  function escapeHtml(text) {
+    text = String(text == null ? "" : text);
+    return text
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  function loadPosts() {
+    fetch("posts.json?time=" + Date.now())
+      .then(function (res) {
+        if (!res.ok) throw new Error("posts.json が見つかりません。");
+        return res.json();
+      })
+      .then(function (data) {
+        if (!Array.isArray(data)) throw new Error("posts.json の形式が違います。");
+        posts = data;
+        render();
+      })
+      .catch(function (e) {
+        el("postsBox").innerHTML =
+          '<div class="empty">まだ公開作品がありません。<br>管理ページでバックアップした posts.json をアップロードしてください。</div>';
+      });
+  }
+
+  function render() {
+    var box = el("postsBox");
+    var q = el("searchInput").value.toLowerCase();
+    var html = "";
+    var count = 0;
+
+    for (var i = 0; i < posts.length; i++) {
+      var p = posts[i];
+      var target = (p.title + " " + p.note).toLowerCase();
+      if (q && target.indexOf(q) === -1) continue;
+
+      count++;
+
+      html += '<article class="post">';
+      html += '<div class="post-head">';
+      html += '<div class="title">' + escapeHtml(p.title) + '</div>';
+      html += '<div class="meta">' + escapeHtml(p.createdAt || "") + (p.sensitive ? ' / ワンクッション' : '') + '</div>';
+      html += '</div>';
+
+      if (p.sensitive && !p.revealedForReader) {
+        html += '<div class="cover"><div><strong>ワンクッション</strong><span class="small">この投稿を表示しますか？</span><br><br><button type="button" data-reveal="' + escapeHtml(p.id) + '">表示する</button></div></div>';
+      } else {
+        html += '<div class="scroller">';
+        for (var j = 0; j < p.images.length; j++) {
+          html += '<div class="frame" data-open="' + escapeHtml(p.id) + '" data-index="' + j + '">';
+          html += '<img src="' + p.images[j].src + '" alt="">';
+          html += '</div>';
+        }
+        html += '</div>';
+      }
+
+      if (p.note) {
+        html += '<div class="note">' + escapeHtml(p.note) + '</div>';
+      }
+
+      html += '</article>';
+    }
+
+    if (!count) {
+      html = '<div class="empty">作品が見つかりません。</div>';
+    }
+
+    box.innerHTML = html;
+    bindButtons();
+  }
+
+  function bindButtons() {
+    var revealBtns = document.querySelectorAll("[data-reveal]");
+    for (var i = 0; i < revealBtns.length; i++) {
+      revealBtns[i].onclick = function () {
+        var id = this.getAttribute("data-reveal");
+        var p = findPost(id);
+        if (!p) return;
+
+        if (p.visibility === "パスワード") {
+          var answer = prompt("パスワードを入力してください。");
+          if (answer !== p.password) {
+            alert("パスワードが違います。");
+            return;
+          }
+        }
+
+        p.revealedForReader = true;
+        render();
+      };
+    }
+
+    var frames = document.querySelectorAll("[data-open]");
+    for (var k = 0; k < frames.length; k++) {
+      frames[k].onclick = function () {
+        var id = this.getAttribute("data-open");
+        var index = parseInt(this.getAttribute("data-index"), 10) || 0;
+        var p = findPost(id);
+        if (!p) return;
+        openViewer(p.images, index);
+      };
+    }
+  }
+
+  function findPost(id) {
+    for (var i = 0; i < posts.length; i++) {
+      if (posts[i].id === id) return posts[i];
+    }
+    return null;
+  }
+
+  function openViewer(images, index) {
+    currentImages = images || [];
+    currentIndex = index || 0;
+    if (!currentImages.length) return;
+    el("viewerImg").src = currentImages[currentIndex].src;
+    el("viewer").className = "viewer show";
+  }
+
+  function closeViewer() {
+    el("viewer").className = "viewer";
+    el("viewerImg").src = "";
+  }
+
+  function moveViewer(step) {
+    if (!currentImages.length) return;
+    currentIndex += step;
+    if (currentIndex < 0) currentIndex = currentImages.length - 1;
+    if (currentIndex >= currentImages.length) currentIndex = 0;
+    el("viewerImg").src = currentImages[currentIndex].src;
+  }
+
+  el("searchInput").oninput = render;
+  el("closeViewerBtn").onclick = closeViewer;
+
+  /* 右から左に読む漫画形式：
+     次へ＝左方向に進むページ、前へ＝右方向に戻るページ */
+  el("nextBtn").onclick = function () { moveViewer(1); };
+  el("prevBtn").onclick = function () { moveViewer(-1); };
+
+  document.onkeydown = function (e) {
+    e = e || window.event;
+    if (el("viewer").className.indexOf("show") < 0) return;
+    if (e.key === "Escape") closeViewer();
+    if (e.key === "ArrowLeft") moveViewer(1);
+    if (e.key === "ArrowRight") moveViewer(-1);
+  };
+
+  loadPosts();
+})();
+</script>
+</body>
+</html>
